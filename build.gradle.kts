@@ -1,0 +1,39 @@
+plugins {
+    kotlin("jvm") version "2.1.10"
+}
+
+group = "org.ivcode"
+version = "1.0-SNAPSHOT"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // SLF4J Logging
+    implementation("org.slf4j:slf4j-api:2.0.9")
+    runtimeOnly("org.slf4j:slf4j-simple:2.0.9")
+
+    // Mustache
+    implementation("com.github.spullara.mustache.java:compiler:0.9.14")
+
+    // Retrofit
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-jackson:2.11.0")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.1")
+
+    // Jackson
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.17.+")
+
+    // Kotlin reflection (needed when you want to read KClass annotations, properties, etc.)
+    implementation("org.jetbrains.kotlin:kotlin-reflect:2.1.10")
+
+    testImplementation(kotlin("test"))
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+kotlin {
+    jvmToolchain(21)
+}
