@@ -1,16 +1,31 @@
-KComfy
-======
+# KComfy
 
-Kotlin client for interacting with ComfyUI.
+Kotlin client for interacting with ComfyUI-style backends — render ComfyUI workflows from Kotlin data classes and manage prompt jobs programmatically.
 
-Project summary
----------------
-KComfy is a small Kotlin library + example workflows that demonstrate how to compose and send prompt requests to a ComfyUI-style backend. It includes templating (Mustache), Retrofit-based HTTP client wiring, and example workflows such as checkpoint-based text-to-image.
+[![Maven Snapshot](https://img.shields.io/badge/maven-snapshot-blue)](https://maven.ivcode.org.s3.amazonaws.com/snapshot)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](https://www.apache.org/licenses/LICENSE-2.0)
 
-Installation
-------------
-To use KComfy in your Kotlin project, add the following dependency to your `build.gradle.kts`
+Table of contents
+- [Features](#features)
+- [Quickstart](#quickstart)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Workflows](#workflows)
 
+## Features
+- Render ComfyUI JSON workflows from Mustache templates and Kotlin data classes
+- Retrofit-based HTTP client with WebSocket job updates
+- Example workflows and templates included
+- Simple job lifecycle management with automatic cleanup
+
+## Quickstart
+1. Add KComfy to your project (see Installation).
+2. Start a ComfyUI-compatible server (e.g., local ComfyUI on port 8000).
+3. Use KComfy to render a workflow and submit a prompt.
+
+## Installation
+
+Kotlin (Gradle Kotlin DSL)
 ```kotlin
 repositories {
     maven {
@@ -23,42 +38,38 @@ dependencies {
 }
 ```
 
-Usage
-------
+## Usage
 
+Minimal example (quick)
 ```kotlin
-
-// Create the ComfyUI API client.
 val kComfy = KComfy.create("http://localhost:8000")
 
 kComfy.use { api ->
-    // Send a prompt request to generate an image using a specific checkpoint.
-    api.prompt(CheckpointTextToImage (
-        checkpoint = "sdXL_v10VAEFix",
-        prompt = "a cartoon style illustration of a happy astronaut riding a horse in space, vibrant colors, detailed, high quality",
-        negativePrompt = "lowres, bad anatomy, error body, error hands, error fingers"
-    )).use {
-        // Wait for the job to complete. Get the outputs when done.
-        val outputs = it.getOutputs().get()
+  val job = api.prompt(CheckpointTextToImage(
+    checkpoint = "sdXL_v10VAEFix",
+    prompt = "a happy astronaut riding a horse in space, cartoon, vibrant"
+  ))
 
-        // Save each output image to a file.
-        outputs.forEach { output ->
-            val input = api.view(output)
-            File(output.filename).outputStream().use { fileOut ->
-                input.copyTo(fileOut)
-            }
+  job.use {
+    val outputs = it.getOutputs().get()   // wait and fetch outputs
+    outputs.forEach { output ->
+      api.view(output).use { input ->
+        File(output.filename).outputStream().use { fileOut ->
+          input.copyTo(fileOut)
         }
-    } // on prompt-job close, remove jobs from server
-} // on closing KComfy, clean up resources and close web-socket
-
+      }
+    }
+  }
+}
 ```
 
-Workflows
----------
-ComfyUI workflows are defined using Mustache templates + Kotlin model objects. The library includes example workflows
-under the `workflows` package.
+_Note:_ This example assumes you have the checkpoint "sdXL_v10VAEFix" available on your ComfyUI server.
 
-For this example, see these files within the project:
+## Workflows
+
+Workflows are Mustache templates plus Kotlin model classes. Templates should be on the classpath (e.g., `src/main/resources`) and are rendered using property names from the data class.
+
+Example file layout:
 ```
 src/
 └── main/
@@ -70,14 +81,7 @@ src/
             └── checkpoint_text_to_image.json.mustache
 ```
 
-Key files:
-- [`CheckpointTextToImage`](src/main/kotlin/workflows/CheckpointTextToImage.kt)
-- [`checkpoint_text_to_image.json.mustache`](src/main/resources/comfy/checkpoint_text_to_image.json.mustache)
-
-
-In this example we load in a standard ComfyUI checkpoint-based text-to-image workflow. The important part of this
-example is this `@WorkflowTemplate` annotation. This tells KComfy where to find the Mustache template for this workflow.
-
+Example model and template annotation:
 ```kotlin
 @WorkflowTemplate("comfy/checkpoint_text_to_image.json.mustache")
 data class CheckpointTextToImage(
@@ -96,32 +100,7 @@ data class CheckpointTextToImage(
 )
 ```
 
-The template is a parameterized ComfyUI workflow export. These are represented as mustache templates. These templates
-are assumed to be in the classpath. If you're using Gradle, you can place them in `src/main/resources`. Otherwise,
-place them in your source folder and ensure they are included in the classpath at runtime.
-
-The parameter names will be mapped to the properties of the data class. The value `{{prompt}}`, for example, will be replaced
-with the value of the `prompt` property when the workflow is rendered.
-
-For information on exporting ComfyUI workflows and how templates map to the exported JSON, see this guide:
-- https://medium.com/@next.trail.tech/how-to-use-comfyui-api-with-python-a-complete-guide-f786da157d37
-
-
-Job Management
-----------------
-ComfyUI wasn't designed as a REST API-first system, so job management is happening behind the scenes. It's mostly
-abstracted away, but you should be aware of what's happening.
-
-A job in ComfyUI goes through the following lifecycle:
-
-1. **Create Job**: When you send a prompt request, a new job is created
-2. **Pending**: The job is queued for processing
-3. **Processing**: The job is actively being processed by ComfyUI
-4. **History**: Once complete, the job is moved to history for later retrieval
-
-When a job is closed using the `Closeable` interface, KComfy will attempt to delete the job from the ComfyUI server to
-free up resources. If closed while still processing, the job may be cancelled, or it may get lost.
-
-KComfy uses a WebSocket connection to listen for job status updates. This connection is managed automatically. When you
-close the `KComfy` client, the WebSocket connection is closed as well. Jobs will no longer be updated, though 
-non-websocket communications (like pulling outputs) will still work.
+Template notes:
+- Templates are rendered using Mustache; `{{prompt}}` maps to the `prompt` property of the data class.
+- Place templates in your resources so they are on the runtime classpath.
+- See the [`checkpoint_text_to_image.json.mustache`](src/main/resources/comfy/checkpoint_text_to_image.json.mustache) template file to see how the data class properties maps to the template.
