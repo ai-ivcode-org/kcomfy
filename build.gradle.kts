@@ -1,12 +1,21 @@
+import org.ivcode.gradle.s3mvn.utils.isSnapshot
+import java.net.URI
+
 plugins {
     kotlin("jvm") version "2.1.10"
+    id("s3mvn")
 }
 
 group = "org.ivcode"
-version = "1.0-SNAPSHOT"
+version = "0.1-SNAPSHOT"
 
 repositories {
     mavenCentral()
+}
+
+s3mvn {
+    val directory = if (isSnapshot(project.version.toString())) "snapshot" else "release"
+    url = URI("s3://maven.ivcode.org/$directory/")
 }
 
 dependencies {
