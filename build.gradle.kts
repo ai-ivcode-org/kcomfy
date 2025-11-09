@@ -44,3 +44,16 @@ tasks.test {
 kotlin {
     jvmToolchain(21)
 }
+
+// Disable integration tests unless explicitly enabled
+tasks.withType<Test>().configureEach {
+    val includeIT = project.hasProperty("it")
+
+    if (!includeIT) {
+        filter {
+            isFailOnNoMatchingTests = false
+            // exclude tests whose simple class or method name ends with "IT"
+            excludeTestsMatching("*IT")
+        }
+    }
+}
